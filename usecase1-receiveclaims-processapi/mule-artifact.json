@@ -1,0 +1,11 @@
+{
+  "minMuleVersion": "4.3.0",
+  "classLoaderModelLoaderDescriptor": {
+        "id": "mule",
+        "attributes": {
+            "exportedPackages": [
+                "com.mulesoft.transform","com.mulesoft.parquet"
+            ]
+        }
+    }
+}

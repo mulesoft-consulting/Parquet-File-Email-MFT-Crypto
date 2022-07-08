@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:crypto="http://www.mulesoft.org/schema/mule/crypto"
+	xmlns:mft="http://www.mulesoft.org/schema/mule/mft" xmlns:claims-system-api="http://www.mulesoft.org/schema/mule/claims-system-api" xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:java="http://www.mulesoft.org/schema/mule/java" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/claims-system-api http://www.mulesoft.org/schema/mule/claims-system-api/current/mule-claims-system-api.xsd
+http://www.mulesoft.org/schema/mule/mft http://www.mulesoft.org/schema/mule/mft/current/mule-mft.xsd
+http://www.mulesoft.org/schema/mule/crypto http://www.mulesoft.org/schema/mule/crypto/current/mule-crypto.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd">
+	<configuration-properties doc:name="Configuration properties" doc:id="9231997a-0a68-482d-bbe6-f62184e209ef" file="mule-artifact.properties" />
+	<sftp:config name="SFTP_Config" doc:name="SFTP Config" doc:id="54db5b44-d5bc-4405-9225-070ef8ae0d58" >
+		<sftp:connection workingDir="${sftp.workingDirectory}" host="${sftp.host}" port="${sftp.port}" username="${sftp.username}" password="${sftp.password}" passphrase="mule123" />
+	</sftp:config>
+	<claims-system-api:config name="Claims_System_API_Config" doc:name="Claims System API Config" doc:id="9d488f5d-d02c-4c45-accb-45392291aaaf" property_host="${claims.system.api.host}" property_port="${claims.system.api.port}" property_protocol="HTTP" property_basePath="${claims.system.api.basePath}" property_responseTimeout="120000"/>
+	<mft:config name="MFT_Config" doc:name="MFT Config" doc:id="54aa004b-9144-4c52-9af8-284d3a770d71" >
+		<mft:mft-connection APIUrl="${mft.api.url}" StorageRepository="${mft.storage.repository}" SiteKey="${mft.site.key}" FlowSecret="${mft.flow.secret}" Timeout="${mft.connection.timeout}" />
+	</mft:config>
+	<crypto:pgp-config name="Crypto_Pgp" doc:name="Crypto Pgp" doc:id="ef6822e5-2a8e-45ae-995f-000209b23df8" publicKeyring="muledemo-publickey.asc" privateKeyring="muledemo-privatekey.asc">
+		<crypto:pgp-key-infos >
+			<crypto:pgp-asymmetric-key-info keyId="muledemo" fingerprint="F190740D82B28A18D9C41DB3A9AB3F77BD662A47" passphrase="mule123" />
+		</crypto:pgp-key-infos>
+	</crypto:pgp-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="bb38ed4d-2ebc-46b3-8a12-cb230f435fe1" >
+		<db:oracle-connection host="${oracle.db.host}" port="${oracle.db.port}" user="${oracle.db.user}" password="${oracle.db.password}" instance="${oracle.db.instance}"/>
+	</db:config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="c9e52fcc-6614-4af2-b16f-6f36d666e27a" >
+		<file:connection workingDir="/Users/kalyana.venkata/Desktop/FL-Citizens" />
+	</file:config>
+	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="56478cc9-caf4-4a06-a5a2-cfb1829bf3c1" >
+		<email:smtp-connection host="${email.host}" port="${email.port}" user="${email.user}" password="${email.password}" >
+			<email:properties >
+				<email:property key="mail.smtp.starttls.enable" value="true" />
+			</email:properties>
+		</email:smtp-connection>
+	</email:smtp-config>
+	<flow name="usecase1-receiveclaims-processapi-Inpatient-CSV-Flow" doc:id="9816fa03-3e30-4125-b71d-4741742699ce" >
+		<mft:file-pickup-source doc:name="On File Pickup Source" doc:id="c9410464-3289-447d-b1fd-ca30b60cbfe9" config-ref="MFT_Config" outputMimeType="application/csv">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</mft:file-pickup-source>
+		<set-variable value="#[output application/json --- attributes]" doc:name="mftAttributes" doc:id="ecf3f7cf-ce0a-49de-9989-25de483036c9" variableName="mftAttributes"/>
+		<logger level="INFO" doc:name="Logger" doc:id="fa6da93f-7c24-483f-b234-e7ae467cc797" message="#[vars.mftAttributes]"/>
+		<set-variable value="#[now()]" doc:name="receiveTime" doc:id="8933df25-7453-47eb-b31d-b0b4859345bc" variableName="receiveTime" />
+		<scatter-gather doc:name="Scatter-Gather" doc:id="b7dc594f-43c5-4a66-9ac9-e739aa4370f9" >
+			<route >
+				<foreach doc:name="For Each" doc:id="16d2af8d-3cd3-4e69-b399-ccfeef3c56d7" collection="#[payload]" batchSize="${for.each.batch.size}">
+					<ee:transform doc:name="Transform Message" doc:id="40f0f230-373a-4381-892b-c0c4b84c6a1b">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map (outerItem, outerIndex) -> {
+	(outerItem map (item, index) -> {
+		"DESYNPUF_ID": item.DESYNPUF_ID,
+		"CLM_ID": item.CLM_ID,
+		"SEGMENT": item.SEGMENT,
+		"CLM_FROM_DT": item.CLM_FROM_DT,
+		"CLM_THRU_DT": item.CLM_THRU_DT,
+		"PRVDR_NUM": item.PRVDR_NUM,
+		"CLM_PMT_AMT": item.CLM_PMT_AMT as Number default 0,
+		"NCH_PRMRY_PYR_CLM_PD_AMT": item.NCH_PRMRY_PYR_CLM_PD_AMT as Number default 0 ,
+		"AT_PHYSN_NPI": item.AT_PHYSN_NPI,
+		"OP_PHYSN_NPI": item.OP_PHYSN_NPI,
+		"OT_PHYSN_NPI": item.OT_PHYSN_NPI,
+		"CLM_ADMSN_DT": item.CLM_ADMSN_DT as String default "",
+		"ADMTNG_ICD9_DGNS_CD": item.ADMTNG_ICD9_DGNS_CD,
+		"CLM_PASS_THRU_PER_DIEM_AMT": item.CLM_PASS_THRU_PER_DIEM_AMT as Number default 0,
+		"NCH_BENE_IP_DDCTBL_AMT": item.NCH_BENE_IP_DDCTBL_AMT as Number default 0,
+		"NCH_BENE_PTA_COINSRNC_LBLTY_AM": item.NCH_BENE_PTA_COINSRNC_LBLTY_AM as Number default 0,
+		"NCH_BENE_BLOOD_DDCTBL_LBLTY_AM": item.NCH_BENE_BLOOD_DDCTBL_LBLTY_AM as Number default 0,
+		"CLM_UTLZTN_DAY_CNT": item.CLM_UTLZTN_DAY_CNT as Number default 0,
+		"NCH_BENE_DSCHRG_DT": item.NCH_BENE_DSCHRG_DT as String default "",
+		"CLM_DRG_CD": item.CLM_DRG_CD as String default "",
+		"ICD9_DGNS_CD_1": item.ICD9_DGNS_CD_1,
+		"ICD9_DGNS_CD_2": item.ICD9_DGNS_CD_2,
+		"ICD9_DGNS_CD_3": item.ICD9_DGNS_CD_3,
+		"ICD9_DGNS_CD_4": item.ICD9_DGNS_CD_4,
+		"ICD9_DGNS_CD_5": item.ICD9_DGNS_CD_5,
+		"ICD9_DGNS_CD_6": item.ICD9_DGNS_CD_6,
+		"ICD9_DGNS_CD_7": item.ICD9_DGNS_CD_7,
+		"ICD9_DGNS_CD_8": item.ICD9_DGNS_CD_8,
+		"ICD9_DGNS_CD_9": item.ICD9_DGNS_CD_9,
+		"ICD9_DGNS_CD_10": item.ICD9_DGNS_CD_10,
+		"ICD9_PRCDR_CD_1": item.ICD9_PRCDR_CD_1,
+		"ICD9_PRCDR_CD_2": item.ICD9_PRCDR_CD_2,
+		"ICD9_PRCDR_CD_3": item.ICD9_PRCDR_CD_3,
+		"ICD9_PRCDR_CD_4": item.ICD9_PRCDR_CD_4,
+		"ICD9_PRCDR_CD_5": item.ICD9_PRCDR_CD_5,
+		"ICD9_PRCDR_CD_6": item.ICD9_PRCDR_CD_6,
+		"NCH_BENE_PTB_DDCTBL_AMT": item.NCH_BENE_PTB_DDCTBL_AMT as Number default 0,
+		"NCH_BENE_PTB_COINSRNC_AMT": item.NCH_BENE_PTB_COINSRNC_AMT as Number default 0,
+		"HCPCS_CD_1": item.HCPCS_CD_1,
+		"HCPCS_CD_2": item.HCPCS_CD_2,
+		"HCPCS_CD_3": item.HCPCS_CD_3,
+		"HCPCS_CD_4": item.HCPCS_CD_4,
+		"HCPCS_CD_5": item.HCPCS_CD_5,
+		"HCPCS_CD_6": item.HCPCS_CD_6,
+		"HCPCS_CD_7": item.HCPCS_CD_7,
+		"HCPCS_CD_8": item.HCPCS_CD_8,
+		"HCPCS_CD_9": item.HCPCS_CD_9,
+		"HCPCS_CD_10": item.HCPCS_CD_10,
+		"HCPCS_CD_11": item.HCPCS_CD_11,
+		"HCPCS_CD_12": item.HCPCS_CD_12,
+		"HCPCS_CD_13": item.HCPCS_CD_13,
+		"HCPCS_CD_14": item.HCPCS_CD_14,
+		"HCPCS_CD_15": item.HCPCS_CD_15,
+		"HCPCS_CD_16": item.HCPCS_CD_16,
+		"HCPCS_CD_17": item.HCPCS_CD_17,
+		"HCPCS_CD_18": item.HCPCS_CD_18,
+		"HCPCS_CD_19": item.HCPCS_CD_19,
+		"HCPCS_CD_20": item.HCPCS_CD_20,
+		"HCPCS_CD_21": item.HCPCS_CD_21,
+		"HCPCS_CD_22": item.HCPCS_CD_22,
+		"HCPCS_CD_23": item.HCPCS_CD_23,
+		"HCPCS_CD_24": item.HCPCS_CD_24,
+		"HCPCS_CD_25": item.HCPCS_CD_25,
+		"HCPCS_CD_26": item.HCPCS_CD_26,
+		"HCPCS_CD_27": item.HCPCS_CD_27,
+		"HCPCS_CD_28": item.HCPCS_CD_28,
+		"HCPCS_CD_29": item.HCPCS_CD_29,
+		"HCPCS_CD_30": item.HCPCS_CD_30,
+		"HCPCS_CD_31": item.HCPCS_CD_31,
+		"HCPCS_CD_32": item.HCPCS_CD_32,
+		"HCPCS_CD_33": item.HCPCS_CD_33,
+		"HCPCS_CD_34": item.HCPCS_CD_34,
+		"HCPCS_CD_35": item.HCPCS_CD_35,
+		"HCPCS_CD_36": item.HCPCS_CD_36,
+		"HCPCS_CD_37": item.HCPCS_CD_37,
+		"HCPCS_CD_38": item.HCPCS_CD_38,
+		"HCPCS_CD_39": item.HCPCS_CD_39,
+		"HCPCS_CD_40": item.HCPCS_CD_40,
+		"HCPCS_CD_41": item.HCPCS_CD_41,
+		"HCPCS_CD_42": item.HCPCS_CD_42,
+		"HCPCS_CD_43": item.HCPCS_CD_43,
+		"HCPCS_CD_44": item.HCPCS_CD_44,
+		"HCPCS_CD_45": item.HCPCS_CD_45,
+		"CLM_TYPE": "INPATIENT",
+		"CLM_STATUS": "NEW", 
+		"MANAGER_APPROVAL": (if (item.CLM_PMT_AMT > 1000) "Required" else "AutoApproved" )
+	})
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+					<flow-ref doc:name="Add New Claims" doc:id="fc54ade8-8879-45fb-bd75-f81b3d9cf61e" name="Add-New-Claims-Sub_Flow" />
+				</foreach>
+				<mft:flow-outcome doc:name="Flow Outcome" doc:id="bf881fd0-171b-4704-85e0-7d349646027a" config-ref="MFT_Config" fileCode="#[vars.mftAttributes.fileCode]" status="PASSED" flowInstanceCode="#[uuid()]" />
+			</route>
+			<route >
+				<flow-ref doc:name="Encrypt file content and write to folder" doc:id="81f4e65e-2501-464f-8438-640d101a8769" name="Encrypt-FileContent-Sub_Flow"/>
+			</route>
+		</scatter-gather>
+		<ee:transform doc:name="Transform Message" doc:id="10a2a5d9-582a-494e-afa9-739d118ffd16" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"fileName": vars.mftAttributes.fileName,
+	"fileSize": vars.mftAttributes.fileSize,
+	"fileType": "INPATIENT",
+	"fileStatus": "SUCCESS",
+	"receiveTime":  vars.receiveTime,
+	"completionTime": now()
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="f7e3c16e-4508-4958-8aa0-954b0596350c" >
+			<route >
+				<flow-ref doc:name="Persist inpatient file metadata" doc:id="44fca032-6e6b-4b27-a3cc-fcb0a8063cc9" name="Persist-file-metadata-Sub_Flow" />
+			</route>
+			<route >
+				<flow-ref doc:name="Generate PDF and send Email Notification with file processing status" doc:id="d437853d-d094-4e5f-b354-239d5d76faed" name="GeneratePDF-Send-Email-Sub_Flow"/>
+			</route>
+		</scatter-gather>
+		<logger level="INFO" doc:name="Logger" doc:id="e92d7579-bfab-4843-8718-e5f451a1ef13" message='#[vars.mftAttributes.fileName as String ++ " Processed Successfully!"]'/>
+	</flow>
+	<flow name="usecase1-receiveclaims-processapi-Outpatient-Parquet-Flow" doc:id="c8b3a656-f794-420e-af32-5c6215830775" >
+		<!-- <java:invoke-static doc:name="Invoke static" doc:id="01d5886f-5448-4915-9c38-49255ad81574" class="com.mulesoft.parquet.ParquetReader">
+			<java:args ><![CDATA[#[{
+	'arg0': "/Users/kalyana.venkata/Desktop/FL-Citizens/Parquet/outpatient_claims.parquet"
+}]]]></java:args>
+		</java:invoke-static> -->
+		<sftp:listener doc:name="On New or Updated File" doc:id="0d14d2a9-0a97-452d-9a4d-06baa8811caf" config-ref="SFTP_Config" directory="Outpatient" autoDelete="true" moveToDirectory="#[p('sftp.workingDirectory') ++ &quot;/Archive&quot;]" renameTo='#[uuid() ++ ".parquet"]'>
+			<scheduling-strategy >
+				<fixed-frequency frequency="10000"/>
+			</scheduling-strategy>
+			<sftp:matcher filenamePattern="*.parquet"/>
+		</sftp:listener>
+		<set-variable value="#[output application/json --- attributes]" doc:name="sftpAttributes" doc:id="ee896b60-3d7c-40a1-8cd2-64ca30dfe344" variableName="sftpAttributes"/>
+		<logger level="INFO" doc:name="Logger" doc:id="87a507e5-d97c-4599-bfd6-d7fbac500dbf" message="#[vars.sftpAttributes]"/>
+		<set-variable value="#[now()]" doc:name="receiveTime" doc:id="c97ce5fc-d6c8-4ba3-a975-196f969f56e5" variableName="receiveTime"/>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="02778a10-5dcb-4ca6-83d3-2923ff44024c" >
+			<route >
+				<java:invoke-static doc:name="Invoke static" doc:id="54b1c541-4324-40ea-bf28-7eaa121534c1" class="com.mulesoft.parquet.ParquetAvroReader" method="read(byte[])">
+			<java:args><![CDATA[#[{
+	'b': payload
+}]]]></java:args>
+		</java:invoke-static>
+				<ee:transform doc:name="Transform Message" doc:id="e33797e4-a17d-40f5-a603-a67fdb6d0f4b">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map (item, index) -> {
+	(read(item,"application/json"))
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<ee:transform doc:name="Transform Message" doc:id="aeeea1d2-4b4e-4e5a-9c6d-150b28244149">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map (item, index) -> {
+	"DESYNPUF_ID": item.DESYNPUF_ID,
+	"CLM_ID": item.CLM_ID,
+	"SEGMENT": item.SEGMENT,
+	"CLM_FROM_DT": item.CLM_FROM_DT,
+	"CLM_THRU_DT": item.CLM_THRU_DT,
+	"PRVDR_NUM": item.PRVDR_NUM,
+	"CLM_PMT_AMT": item.CLM_PMT_AMT as Number default 0,
+	"NCH_PRMRY_PYR_CLM_PD_AMT": item.NCH_PRMRY_PYR_CLM_PD_AMT as Number default 0 ,
+	"AT_PHYSN_NPI": item.AT_PHYSN_NPI,
+	"OP_PHYSN_NPI": item.OP_PHYSN_NPI,
+	"OT_PHYSN_NPI": item.OT_PHYSN_NPI,
+	"CLM_ADMSN_DT": item.CLM_ADMSN_DT as String default "",
+	"ADMTNG_ICD9_DGNS_CD": item.ADMTNG_ICD9_DGNS_CD,
+	"CLM_PASS_THRU_PER_DIEM_AMT": item.CLM_PASS_THRU_PER_DIEM_AMT as Number default 0,
+	"NCH_BENE_IP_DDCTBL_AMT": item.NCH_BENE_IP_DDCTBL_AMT as Number default 0,
+	"NCH_BENE_PTA_COINSRNC_LBLTY_AM": item.NCH_BENE_PTA_COINSRNC_LBLTY_AM as Number default 0,
+	"NCH_BENE_BLOOD_DDCTBL_LBLTY_AM": item.NCH_BENE_BLOOD_DDCTBL_LBLTY_AM as Number default 0,
+	"CLM_UTLZTN_DAY_CNT": item.CLM_UTLZTN_DAY_CNT as Number default 0,
+	"NCH_BENE_DSCHRG_DT": item.NCH_BENE_DSCHRG_DT as String default "",
+	"CLM_DRG_CD": item.CLM_DRG_CD as String default "",
+	"ICD9_DGNS_CD_1": item.ICD9_DGNS_CD_1,
+	"ICD9_DGNS_CD_2": item.ICD9_DGNS_CD_2,
+	"ICD9_DGNS_CD_3": item.ICD9_DGNS_CD_3,
+	"ICD9_DGNS_CD_4": item.ICD9_DGNS_CD_4,
+	"ICD9_DGNS_CD_5": item.ICD9_DGNS_CD_5,
+	"ICD9_DGNS_CD_6": item.ICD9_DGNS_CD_6,
+	"ICD9_DGNS_CD_7": item.ICD9_DGNS_CD_7,
+	"ICD9_DGNS_CD_8": item.ICD9_DGNS_CD_8,
+	"ICD9_DGNS_CD_9": item.ICD9_DGNS_CD_9,
+	"ICD9_DGNS_CD_10": item.ICD9_DGNS_CD_10,
+	"ICD9_PRCDR_CD_1": item.ICD9_PRCDR_CD_1,
+	"ICD9_PRCDR_CD_2": item.ICD9_PRCDR_CD_2,
+	"ICD9_PRCDR_CD_3": item.ICD9_PRCDR_CD_3,
+	"ICD9_PRCDR_CD_4": item.ICD9_PRCDR_CD_4,
+	"ICD9_PRCDR_CD_5": item.ICD9_PRCDR_CD_5,
+	"ICD9_PRCDR_CD_6": item.ICD9_PRCDR_CD_6,
+	"NCH_BENE_PTB_DDCTBL_AMT": item.NCH_BENE_PTB_DDCTBL_AMT as Number default 0,
+	"NCH_BENE_PTB_COINSRNC_AMT": item.NCH_BENE_PTB_COINSRNC_AMT as Number default 0,
+	"HCPCS_CD_1": item.HCPCS_CD_1,
+	"HCPCS_CD_2": item.HCPCS_CD_2,
+	"HCPCS_CD_3": item.HCPCS_CD_3,
+	"HCPCS_CD_4": item.HCPCS_CD_4,
+	"HCPCS_CD_5": item.HCPCS_CD_5,
+	"HCPCS_CD_6": item.HCPCS_CD_6,
+	"HCPCS_CD_7": item.HCPCS_CD_7,
+	"HCPCS_CD_8": item.HCPCS_CD_8,
+	"HCPCS_CD_9": item.HCPCS_CD_9,
+	"HCPCS_CD_10": item.HCPCS_CD_10,
+	"HCPCS_CD_11": item.HCPCS_CD_11,
+	"HCPCS_CD_12": item.HCPCS_CD_12,
+	"HCPCS_CD_13": item.HCPCS_CD_13,
+	"HCPCS_CD_14": item.HCPCS_CD_14,
+	"HCPCS_CD_15": item.HCPCS_CD_15,
+	"HCPCS_CD_16": item.HCPCS_CD_16,
+	"HCPCS_CD_17": item.HCPCS_CD_17,
+	"HCPCS_CD_18": item.HCPCS_CD_18,
+	"HCPCS_CD_19": item.HCPCS_CD_19,
+	"HCPCS_CD_20": item.HCPCS_CD_20,
+	"HCPCS_CD_21": item.HCPCS_CD_21,
+	"HCPCS_CD_22": item.HCPCS_CD_22,
+	"HCPCS_CD_23": item.HCPCS_CD_23,
+	"HCPCS_CD_24": item.HCPCS_CD_24,
+	"HCPCS_CD_25": item.HCPCS_CD_25,
+	"HCPCS_CD_26": item.HCPCS_CD_26,
+	"HCPCS_CD_27": item.HCPCS_CD_27,
+	"HCPCS_CD_28": item.HCPCS_CD_28,
+	"HCPCS_CD_29": item.HCPCS_CD_29,
+	"HCPCS_CD_30": item.HCPCS_CD_30,
+	"HCPCS_CD_31": item.HCPCS_CD_31,
+	"HCPCS_CD_32": item.HCPCS_CD_32,
+	"HCPCS_CD_33": item.HCPCS_CD_33,
+	"HCPCS_CD_34": item.HCPCS_CD_34,
+	"HCPCS_CD_35": item.HCPCS_CD_35,
+	"HCPCS_CD_36": item.HCPCS_CD_36,
+	"HCPCS_CD_37": item.HCPCS_CD_37,
+	"HCPCS_CD_38": item.HCPCS_CD_38,
+	"HCPCS_CD_39": item.HCPCS_CD_39,
+	"HCPCS_CD_40": item.HCPCS_CD_40,
+	"HCPCS_CD_41": item.HCPCS_CD_41,
+	"HCPCS_CD_42": item.HCPCS_CD_42,
+	"HCPCS_CD_43": item.HCPCS_CD_43,
+	"HCPCS_CD_44": item.HCPCS_CD_44,
+	"HCPCS_CD_45": item.HCPCS_CD_45,
+	"CLM_TYPE": "OUTPATIENT",
+	"CLM_STATUS": "NEW", 
+	"MANAGER_APPROVAL": (if (item.CLM_PMT_AMT > 1000) "Required" else "AutoApproved" )
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<flow-ref doc:name="Add New Claims" doc:id="fdfa4b41-b027-4833-84d5-93d7cb3d5941" name="Add-New-Claims-Sub_Flow" />
+			</route>
+			<route >
+				<flow-ref doc:name="Encrypt file content and write to folder" doc:id="a3efa638-1dc1-4a46-ab66-c2104a240052" name="Encrypt-FileContent-Sub_Flow"/>
+			</route>
+		</scatter-gather>
+		<ee:transform doc:name="Transform Message" doc:id="38c1eaa6-2cee-4015-b17a-ae7f243d5948" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"fileName": vars.sftpAttributes.name,
+	"fileSize": vars.sftpAttributes.size,
+	"fileType": "OUTPATIENT",
+	"fileStatus": "SUCCESS",
+	"receiveTime":  vars.receiveTime,
+	"completionTime": now()
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="1fa254a3-02ec-4981-8a0e-de130cdc3190" >
+			<route >
+				<flow-ref doc:name="Persist outpatient file metadata " doc:id="e6b5f182-9a79-480b-a486-e848752e0b04" name="Persist-file-metadata-Sub_Flow" />
+			</route>
+			<route >
+				<flow-ref doc:name="Generate PDF and send Email Notification with file processing status" doc:id="4473ff58-178c-46ac-a14c-2d8dc2474a83" name="GeneratePDF-Send-Email-Sub_Flow"/>
+			</route>
+		</scatter-gather>
+		<logger level="INFO" doc:name="Logger" doc:id="ec5fa9a0-e598-41d1-b3dd-81ab2c8e97ab" message='#[vars.sftpAttributes.name as String ++ " Processed Successfully!"]'/>
+	</flow>
+	<sub-flow name="Add-New-Claims-Sub_Flow" doc:id="2e37bc5e-dc0e-4b02-9b77-cd29f1cf98ad" >
+		<claims-system-api:add-new-claims doc:name="Add new claims" doc:id="5f1af241-e967-491d-ae89-dc9f78d53bc4" config-ref="Claims_System_API_Config" />
+	</sub-flow>
+	<sub-flow name="Encrypt-FileContent-Sub_Flow" doc:id="3d87352b-0e9b-4b15-a4b2-ee3df6b09cfe" >
+		<crypto:pgp-encrypt doc:name="Pgp encrypt" doc:id="b357ecd8-56f5-43de-9698-070aea86fa43" config-ref="Crypto_Pgp">
+			<crypto:pgp-key-info >
+				<crypto:pgp-asymmetric-key-info keyId="muledemo" fingerprint="F190740D82B28A18D9C41DB3A9AB3F77BD662A47" passphrase="mule123" />
+			</crypto:pgp-key-info>
+		</crypto:pgp-encrypt>
+		<sftp:write doc:name="Write" doc:id="a66e05d1-4c91-4692-9df7-7bcdfef0e270" config-ref="SFTP_Config" path='#["Encrypted/" ++ uuid() ++ ".pgpencrypted"]' createParentDirectories="false" mode="CREATE_NEW" />
+	</sub-flow>
+	<sub-flow name="Persist-file-metadata-Sub_Flow" doc:id="f7699ea2-b856-40b3-ae16-b381fbf4e1e5" >
+		<db:insert doc:name="Insert" doc:id="de18a589-a9be-434c-a562-3ee2fbf8ba26" config-ref="Database_Config">
+			<db:sql ><![CDATA[INSERT INTO CMS_CLAIM_FILE_STATUS 
+(FILENAME, RECEIVE_TIME, COMPLETION_TIME, FILETYPE, FILESIZE, FILESTATUS) 
+VALUES
+(:fileName, :receiveTime, :completionTime, :fileType, :fileSize, :fileStatus)
+]]></db:sql>
+			<db:input-parameters ><![CDATA[#[payload]]]></db:input-parameters>
+		</db:insert>
+	</sub-flow>
+	<sub-flow name="GeneratePDF-Send-Email-Sub_Flow" doc:id="00e0c310-1146-413d-bb59-d7bb8e3f8abc" >
+		<ee:transform doc:name="Transform Message" doc:id="f31c8758-5158-4917-8266-14824ce85638">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+---
+"InboundClaimStatus": {
+	(payload)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="1644d6c7-e38c-4998-a671-1a6ac845dece" message="#[payload]" />
+		<file:read doc:name="Read" doc:id="e3bf0bbc-7932-4254-879f-60e1e3e5a643" path="${app.home}/InboundClaimStatus.xsl" target="xsltFile" />
+		<java:invoke-static method="convertToPDF(byte[],java.lang.String)" doc:name="Invoke static" doc:id="cc9b5d14-8432-4c6e-89a4-e84ded5a5b4d" class="com.mulesoft.transform.XML2PDFUsingFOP">
+			<java:args><![CDATA[#[{
+	'arg0': vars.xsltFile,
+	'arg1': payload
+}]]]></java:args>
+		</java:invoke-static>
+		<email:send doc:name="Send" doc:id="7a07ed99-801b-405d-bd23-1b5f24d4aba5" config-ref="Email_SMTP" fromAddress="mule-demo@mulesoft.com" subject="Inbound Claim Status Notification">
+			<email:to-addresses >
+				<email:to-address value="${email.user}" />
+			</email:to-addresses>
+			<email:body >
+				<email:content ><![CDATA[INBOUND CLAIM FILE PROCESSED SUCCESSFULLY!!!]]></email:content>
+			</email:body>
+			<email:attachments ><![CDATA[#[{
+	'inboundClaimStatus.pdf': payload
+}]]]></email:attachments>
+		</email:send>
+	</sub-flow>
+</mule>
